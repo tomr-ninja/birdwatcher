@@ -3,9 +3,9 @@ package birdwatcher
 import (
 	"bufio"
 	"bytes"
+	"encoding/binary"
 	"encoding/csv"
 	"io"
-	"math"
 	"net"
 	"os"
 	"sort"
@@ -33,20 +33,17 @@ func LoadFromCSV(netFilePath, locFilePath string) (*IPDB, error) {
 		db.geos = append(db.geos, &geo)
 	}
 
-	db.keys = make([]uint32, len(netBlocks))
 	db.netAddrs = make([]simpleIP, len(netBlocks))
 	db.netMasks = make([]simpleMask, len(netBlocks))
 	db.geoIDs = make([]uint32, len(netBlocks))
-	db.ranges = make(map[uint16]lookupRange, math.MaxUint16+1)
 
 	for i, network := range netBlocks {
-		db.keys[i] = network.key
-		db.netAddrs[i] = newSimpleIP(network.ipNet.IP)
-		db.netMasks[i] = newSimpleMask(network.ipNet.Mask)
+		mask := make(net.IPMask, 4)
+		binary.BigEndian.PutUint32(mask, network.netMask)
+		db.netAddrs[i] = simpleIP(network.netAddr)
+		db.netMasks[i] = newSimpleMask(mask)
 		db.geoIDs[i] = geoIDMapping[network.geoID]
 	}
-
-	db.prepareRanges()
 
 	return db, nil
 }
@@ -85,15 +82,16 @@ func loadNetBlocks(filePath string) ([]GeoIPNetwork, error) {
 		if len(ipNetBytes) == 0 {
 			continue
 		}
-		_, netBlocks[i].ipNet, err = net.ParseCIDR(string(ipNetBytes)) // allocates 16 bytes instead of 4 :(
+		_, ipNet, err := net.ParseCIDR(string(ipNetBytes))
 		if err != nil {
 			return nil, err
 		}
 		// ipv4 only
-		netBlocks[i].ipNet.IP = netBlocks[i].ipNet.IP.To4()
-		netBlocks[i].ipNet.Mask = netBlocks[i].ipNet.Mask[len(netBlocks[i].ipNet.Mask)-4:]
+		ipNet.IP = ipNet.IP.To4()
+		ipNet.Mask = ipNet.Mask[len(ipNet.Mask)-4:]
 
-		netBlocks[i].key = ipNetKey(netBlocks[i].ipNet)
+		netBlocks[i].netAddr = binary.BigEndian.Uint32(ipNet.IP)
+		netBlocks[i].netMask = binary.BigEndian.Uint32(ipNet.Mask)
 
 		geoIDStart := netStart + netLen + 1
 		geoIDLen := bytes.IndexByte(row[geoIDStart:], ',')
@@ -113,7 +111,7 @@ func loadNetBlocks(filePath string) ([]GeoIPNetwork, error) {
 	}
 
 	sort.Slice(netBlocks, func(i, j int) bool {
-		return netBlocks[i].key < netBlocks[j].key
+		return netBlocks[i].netAddr&netBlocks[i].netMask < netBlocks[j].netAddr&netBlocks[j].netMask
 	})
 
 	return netBlocks, nil
@@ -134,7 +132,6 @@ func loadGeos(filePath string) (map[uint32]Geo, error) {
 
 	var (
 		geoIDIdx     int
-		continentIdx int
 		countryIdx   int
 		cityIdx      int
 		metroCodeIdx int
@@ -145,8 +142,6 @@ func loadGeos(filePath string) (map[uint32]Geo, error) {
 		switch col {
 		case "geoname_id":
 			geoIDIdx = i
-		case "continent_code":
-			continentIdx = i
 		case "country_iso_code":
 			countryIdx = i
 		case "city_name":
@@ -176,18 +171,12 @@ func loadGeos(filePath string) (map[uint32]Geo, error) {
 			return nil, err
 		}
 
-		continent := Continent{'-', '-'}
-		if len(row[continentIdx]) == 2 {
-			continent = Continent{row[continentIdx][0], row[continentIdx][1]}
-		}
-
 		country := Country{'-', '-'}
 		if len(row[countryIdx]) == 2 {
 			country = Country{row[countryIdx][0], row[countryIdx][1]}
 		}
 
 		geoMap[uint32(geoIDInt)] = Geo{
-			Continent: continent,
 			Country:   country,
 			City:      row[cityIdx],
 			MetroCode: row[metroCodeIdx],

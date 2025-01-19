@@ -1,20 +1,9 @@
 package birdwatcher
 
-type (
-	Continent [2]byte
-	Country   [2]byte
-)
+type Country [2]byte
 
 func (c Country) String() string {
 	if name, ok := countries[c]; ok {
-		return name
-	}
-
-	return "N/A"
-}
-
-func (c Continent) String() string {
-	if name, ok := continents[c]; ok {
 		return name
 	}
 
@@ -271,14 +260,4 @@ var countries = map[Country]string{
 	Country{'Z', 'M'}: "Zambia",
 	Country{'Z', 'W'}: "Zimbabwe",
 	Country{'A', 'X'}: "Åland Islands",
-}
-
-var continents = map[Continent]string{
-	Continent{'A', 'F'}: "Africa",
-	Continent{'A', 'S'}: "Asia",
-	Continent{'E', 'U'}: "Europe",
-	Continent{'N', 'A'}: "North America",
-	Continent{'S', 'A'}: "South America",
-	Continent{'O', 'C'}: "Oceania",
-	Continent{'A', 'N'}: "Antarctica",
 }

@@ -40,19 +40,11 @@ func (m simpleMask) IPMask() net.IPMask {
 
 type IPDB struct {
 	// 3 slices in sync with each other
-	keys     []uint32
 	netAddrs []simpleIP
 	netMasks []simpleMask
 	geoIDs   []uint32
 
 	geos []*Geo
-
-	ranges map[uint16]lookupRange // a little speedup for the binary search
-}
-
-type lookupRange struct {
-	start int
-	end   int
 }
 
 func (db *IPDB) LookupIP(ipv4 net.IP) (*Geo, error) {
@@ -61,38 +53,22 @@ func (db *IPDB) LookupIP(ipv4 net.IP) (*Geo, error) {
 	}
 
 	lookupIPKey := binary.BigEndian.Uint32(ipv4)
-	r := db.ranges[uint16(lookupIPKey>>16)]
 
-	i, _ := slices.BinarySearch(db.keys[r.start:r.end+1], lookupIPKey)
-	if i < 1 {
-		i = 1
+	i, found := slices.BinarySearch(db.netAddrs, simpleIP(lookupIPKey))
+	if !found && i > 0 {
+		i -= 1
 	}
 
-	idx := r.start + i - 1
-
-	ipNet := net.IPNet{IP: db.netAddrs[idx].IP(), Mask: db.netMasks[idx].IPMask()}
+	ipNet := net.IPNet{IP: db.netAddrs[i].IP(), Mask: db.netMasks[i].IPMask()}
 
 	if !ipNet.Contains(ipv4) {
 		return nil, fmt.Errorf("IP %s not found in any network", ipv4)
 	}
 
-	return db.geos[db.geoIDs[idx]], nil
-}
-
-func (db *IPDB) prepareRanges() {
-	for i, key := range db.keys {
-		rangeKey := uint16(key >> 16)
-		if r, ok := db.ranges[rangeKey]; ok {
-			r.end = i
-			db.ranges[rangeKey] = r
-		} else {
-			db.ranges[rangeKey] = lookupRange{start: i, end: i}
-		}
-	}
+	return db.geos[db.geoIDs[i]], nil
 }
 
 type DBDump struct {
-	Keys     []uint32
 	NetAddrs []simpleIP
 	NetMasks []simpleMask
 	GeoIDs   []uint32
@@ -100,23 +76,16 @@ type DBDump struct {
 }
 
 type GeoIPNetwork struct {
-	ipNet *net.IPNet
-	geoID uint32
-	key   uint32
+	netAddr uint32
+	netMask uint32
+	geoID   uint32
 }
 
 type Geo struct {
-	City      string    `msgpack:"cy"`
-	MetroCode string    `msgpack:"mc"`
-	Continent Continent `msgpack:"ct"`
-	Country   Country   `msgpack:"cr"`
-	IsEU      bool      `msgpack:"eu"`
-}
-
-func ipNetKey(n *net.IPNet) uint32 {
-	ip := n.IP.Mask(n.Mask).To4()
-
-	return binary.BigEndian.Uint32(ip)
+	City      string  `msgpack:"cy"`
+	MetroCode string  `msgpack:"mc"`
+	Country   Country `msgpack:"cr"`
+	IsEU      bool    `msgpack:"eu"`
 }
 
 func countLines(r io.Reader) (int, error) {

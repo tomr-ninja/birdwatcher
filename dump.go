@@ -1,7 +1,6 @@
 package birdwatcher
 
 import (
-	"math"
 	"os"
 
 	"github.com/vmihailenco/msgpack/v5"
@@ -9,7 +8,6 @@ import (
 
 func Dump(db *IPDB, to string) error {
 	d := DBDump{
-		Keys:     db.keys,
 		NetAddrs: db.netAddrs,
 		NetMasks: db.netMasks,
 		GeoIDs:   db.geoIDs,
@@ -39,15 +37,11 @@ func LoadFromDump(filePath string) (*IPDB, error) {
 	}
 
 	db := &IPDB{
-		keys:     d.Keys,
 		netAddrs: d.NetAddrs,
 		netMasks: d.NetMasks,
 		geoIDs:   d.GeoIDs,
 		geos:     d.Geos,
-		ranges:   make(map[uint16]lookupRange, math.MaxUint16+1),
 	}
-
-	db.prepareRanges()
 
 	return db, nil
 }

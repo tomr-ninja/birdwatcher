@@ -31,10 +31,7 @@ func loadDump() {
 		return
 	}
 
-	fmt.Printf(
-		"IP=%s found: %s, %s",
-		myIP, geo.City, geo.Country,
-	)
+	fmt.Printf("IP=%s found: %+v", myIP, geo)
 }
 
 func loadCSV(dump bool) {
@@ -49,10 +46,7 @@ func loadCSV(dump bool) {
 		return
 	}
 
-	fmt.Printf(
-		"IP=%s found: %s, %s",
-		myIP, geo.City, geo.Country,
-	)
+	fmt.Printf("IP=%s found: %+v", myIP, geo)
 
 	if dump {
 		if err = birdwatcher.Dump(ipDB, "data/geoip.dat"); err != nil {
