@@ -12,6 +12,12 @@ import (
 	"strconv"
 )
 
+type GeoIPNetwork struct {
+	netAddr uint32
+	netMask uint32
+	geoID   uint32
+}
+
 func LoadFromCSV(netFilePath, locFilePath string) (*IPDB, error) {
 	netBlocks, err := loadNetBlocks(netFilePath)
 	if err != nil {
@@ -131,11 +137,11 @@ func loadGeos(filePath string) (map[uint32]Geo, error) {
 	}
 
 	var (
-		geoIDIdx     int
-		countryIdx   int
-		cityIdx      int
-		metroCodeIdx int
-		isEUIdx      int
+		geoIDIdx   int
+		countryIdx int
+		cityIdx    int
+		regionIdx  int
+		isEUIdx    int
 	)
 
 	for i, col := range cols {
@@ -146,8 +152,8 @@ func loadGeos(filePath string) (map[uint32]Geo, error) {
 			countryIdx = i
 		case "city_name":
 			cityIdx = i
-		case "metro_code":
-			metroCodeIdx = i
+		case "subdivision_1_name":
+			regionIdx = i
 		case "is_in_european_union":
 			isEUIdx = i
 		}
@@ -177,10 +183,10 @@ func loadGeos(filePath string) (map[uint32]Geo, error) {
 		}
 
 		geoMap[uint32(geoIDInt)] = Geo{
-			Country:   country,
-			City:      row[cityIdx],
-			MetroCode: row[metroCodeIdx],
-			IsEU:      row[isEUIdx] == "1",
+			Country: country,
+			City:    row[cityIdx],
+			Region:  row[regionIdx],
+			IsEU:    row[isEUIdx] == "1",
 		}
 	}
 

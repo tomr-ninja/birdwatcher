@@ -1,9 +1,10 @@
 package birdwatcher
 
 import (
+	"compress/gzip"
 	"os"
 
-	"github.com/vmihailenco/msgpack/v5"
+	"github.com/tinylib/msgp/msgp"
 )
 
 func Dump(db *IPDB, to string) error {
@@ -20,7 +21,10 @@ func Dump(db *IPDB, to string) error {
 	}
 	defer f.Close()
 
-	return msgpack.NewEncoder(f).Encode(d)
+	w := gzip.NewWriter(f)
+	defer w.Close()
+
+	return msgp.Encode(w, &d)
 }
 
 func LoadFromDump(filePath string) (*IPDB, error) {
@@ -30,8 +34,14 @@ func LoadFromDump(filePath string) (*IPDB, error) {
 	}
 	defer f.Close()
 
+	r, err := gzip.NewReader(f)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
 	var d DBDump
-	err = msgpack.NewDecoder(f).Decode(&d)
+	err = msgp.Decode(r, &d)
 	if err != nil {
 		return nil, err
 	}

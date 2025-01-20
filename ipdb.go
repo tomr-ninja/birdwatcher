@@ -9,6 +9,8 @@ import (
 	"slices"
 )
 
+//go:generate go run github.com/tinylib/msgp@v1.2.5 -tests=false -o ipdb_msgp.go
+
 type simpleIP uint32
 
 func newSimpleIP(ip net.IP) simpleIP {
@@ -38,6 +40,7 @@ func (m simpleMask) IPMask() net.IPMask {
 	return maskBytes
 }
 
+//msgp:ignore IPDB
 type IPDB struct {
 	// 3 slices in sync with each other
 	netAddrs []simpleIP
@@ -68,24 +71,22 @@ func (db *IPDB) LookupIP(ipv4 net.IP) (*Geo, error) {
 	return db.geos[db.geoIDs[i]], nil
 }
 
+//msgp:replace simpleIP with:uint32
+//msgp:replace simpleMask with:uint8
 type DBDump struct {
-	NetAddrs []simpleIP
-	NetMasks []simpleMask
-	GeoIDs   []uint32
-	Geos     []*Geo
+	NetAddrs []simpleIP   `msg:"adds"`
+	NetMasks []simpleMask `msg:"masks"`
+	GeoIDs   []uint32     `msg:"geo_ids"`
+	Geos     []*Geo       `msg:"geos"`
 }
 
-type GeoIPNetwork struct {
-	netAddr uint32
-	netMask uint32
-	geoID   uint32
-}
-
+//msgp:tuple Geo
+//msgp:replace Country with:[2]byte
 type Geo struct {
-	City      string  `msgpack:"cy"`
-	MetroCode string  `msgpack:"mc"`
-	Country   Country `msgpack:"cr"`
-	IsEU      bool    `msgpack:"eu"`
+	City    string  `msg:"cy"`
+	Region  string  `msg:"re"`
+	Country Country `msg:"cr"`
+	IsEU    bool    `msg:"eu"`
 }
 
 func countLines(r io.Reader) (int, error) {
