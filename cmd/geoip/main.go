@@ -21,7 +21,6 @@ func main() {
 	tree := flag3.NewCLI()
 	tree.Subcommand("compile")
 	tree.Subcommand("exec")
-	tree.Subcommand("run")
 
 	cmd, err := flag3.ParseCLI(tree)
 	if err != nil {
@@ -70,9 +69,6 @@ func main() {
 		if err = exec(dumpPath, ipArg); err != nil {
 			fatal(err)
 		}
-
-	case "run":
-		panic("not implemented")
 	}
 }
 
