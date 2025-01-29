@@ -91,8 +91,6 @@ func (v *UserResponse) UnmarshalEasyJSON(l *jlexer.Lexer) {
 	easyjson22b57fa5DecodeGithubComTomrNinjaBirdwatcher(l, v)
 }
 func easyjson22b57fa5Decode1(in *jlexer.Lexer, out *struct {
-	URL       string `json:"url"`
-	String    string `json:"string"`
 	Name      string `json:"name"`
 	Version   string `json:"version"`
 	OS        string `json:"os"`
@@ -121,10 +119,6 @@ func easyjson22b57fa5Decode1(in *jlexer.Lexer, out *struct {
 			continue
 		}
 		switch key {
-		case "url":
-			out.URL = string(in.String())
-		case "string":
-			out.String = string(in.String())
 		case "name":
 			out.Name = string(in.String())
 		case "version":
@@ -154,8 +148,6 @@ func easyjson22b57fa5Decode1(in *jlexer.Lexer, out *struct {
 	}
 }
 func easyjson22b57fa5Encode1(out *jwriter.Writer, in struct {
-	URL       string `json:"url"`
-	String    string `json:"string"`
 	Name      string `json:"name"`
 	Version   string `json:"version"`
 	OS        string `json:"os"`
@@ -170,18 +162,8 @@ func easyjson22b57fa5Encode1(out *jwriter.Writer, in struct {
 	first := true
 	_ = first
 	{
-		const prefix string = ",\"url\":"
-		out.RawString(prefix[1:])
-		out.String(string(in.URL))
-	}
-	{
-		const prefix string = ",\"string\":"
-		out.RawString(prefix)
-		out.String(string(in.String))
-	}
-	{
 		const prefix string = ",\"name\":"
-		out.RawString(prefix)
+		out.RawString(prefix[1:])
 		out.String(string(in.Name))
 	}
 	{

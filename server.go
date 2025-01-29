@@ -37,8 +37,6 @@ type UserResponse struct {
 		IsEU       bool   `json:"is_eu"`
 	} `json:"geo"`
 	UserAgent struct {
-		URL       string `json:"url"`
-		String    string `json:"string"`
 		Name      string `json:"name"`
 		Version   string `json:"version"`
 		OS        string `json:"os"`
@@ -62,8 +60,6 @@ func populateUserResponse(resp *UserResponse, geo *Geo, ua useragent.UserAgent) 
 	resp.Geo.Country = geo.Country.String()
 	resp.Geo.CountryISO = string(geo.Country[:])
 	resp.Geo.IsEU = geo.IsEU
-	resp.UserAgent.URL = ua.URL
-	resp.UserAgent.String = ua.String
 	resp.UserAgent.Name = ua.Name
 	resp.UserAgent.Version = ua.Version
 	resp.UserAgent.OS = ua.OS
