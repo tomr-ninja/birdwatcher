@@ -51,8 +51,8 @@ type IPDB struct {
 }
 
 func (db *IPDB) LookupIP(ipv4 net.IP) (*Geo, error) {
-	if len(ipv4) != 4 {
-		return nil, fmt.Errorf("invalid IP length %d", len(ipv4))
+	if ipv4 = ipv4.To4(); ipv4 == nil {
+		return nil, fmt.Errorf("invalid IP")
 	}
 
 	lookupIPKey := binary.BigEndian.Uint32(ipv4)

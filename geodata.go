@@ -2,6 +2,10 @@ package birdwatcher
 
 type Country [2]byte
 
+func (c Country) MarshalText() ([]byte, error) {
+	return []byte(c.String()), nil
+}
+
 func (c Country) String() string {
 	if name, ok := countries[c]; ok {
 		return name
