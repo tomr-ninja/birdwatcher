@@ -2,6 +2,7 @@ package birdwatcher
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -79,9 +80,18 @@ func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Parse the request
 	req := reqPool.Get().(*UserRequest)
 	defer reqPool.Put(req)
-	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
-		respondError(w, err, http.StatusBadRequest)
-		return
+
+	switch r.Method {
+	case http.MethodGet:
+		req.IP = r.URL.Query().Get("ip")
+		req.UA = r.URL.Query().Get("ua")
+	case http.MethodPost, http.MethodPut:
+		if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+			respondError(w, err, http.StatusBadRequest)
+			return
+		}
+	default:
+		respondError(w, fmt.Errorf("method not allowed"), http.StatusMethodNotAllowed)
 	}
 
 	// Lookup the IP
