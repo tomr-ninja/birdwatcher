@@ -71,15 +71,6 @@ func (db *IPDB) LookupIP(ipv4 net.IP) (*Geo, error) {
 	return db.geos[db.geoIDs[i]], nil
 }
 
-//msgp:replace simpleIP with:uint32
-//msgp:replace simpleMask with:uint8
-type DBDump struct {
-	NetAddrs []simpleIP   `msg:"adds"`
-	NetMasks []simpleMask `msg:"masks"`
-	GeoIDs   []uint32     `msg:"geo_ids"`
-	Geos     []*Geo       `msg:"geos"`
-}
-
 //msgp:tuple Geo
 //msgp:replace Country with:[2]byte
 type Geo struct {

@@ -7,12 +7,31 @@ import (
 	"github.com/tinylib/msgp/msgp"
 )
 
+//go:generate go run github.com/tinylib/msgp@v1.2.5 -tests=false -o dump_msgp.go
+
+type DBDump struct {
+	NetAddrs [256][256][]uint16 `msg:"adds"`
+	NetMasks [256][256][]uint8  `msg:"masks"`
+	GeoIDs   [256][256][]uint32 `msg:"geo_ids"`
+
+	Geos []*Geo `msg:"geos"`
+}
+
 func Dump(db *IPDB, to string) error {
 	d := DBDump{
-		NetAddrs: db.netAddrs,
-		NetMasks: db.netMasks,
-		GeoIDs:   db.geoIDs,
+		NetAddrs: [256][256][]uint16{},
+		NetMasks: [256][256][]uint8{},
+		GeoIDs:   [256][256][]uint32{},
 		Geos:     db.geos,
+	}
+
+	for i, addr := range db.netAddrs {
+		i1 := uint8(addr & 0xff000000 >> 24) // first 8 bits
+		i2 := uint8(addr & 0x00ff0000 >> 16) // second 8 bits
+
+		d.NetAddrs[i1][i2] = append(d.NetAddrs[i1][i2], uint16(addr&0x0000ffff))
+		d.NetMasks[i1][i2] = append(d.NetMasks[i1][i2], uint8(db.netMasks[i]))
+		d.GeoIDs[i1][i2] = append(d.GeoIDs[i1][i2], db.geoIDs[i])
 	}
 
 	f, err := os.Create(to)
@@ -47,10 +66,17 @@ func LoadFromDump(filePath string) (*IPDB, error) {
 	}
 
 	db := &IPDB{
-		netAddrs: d.NetAddrs,
-		netMasks: d.NetMasks,
-		geoIDs:   d.GeoIDs,
-		geos:     d.Geos,
+		geos: d.Geos,
+	}
+
+	for i1, parts := range d.NetAddrs {
+		for i2, suffixes := range parts {
+			for i, addrSuffix := range suffixes {
+				db.netAddrs = append(db.netAddrs, simpleIP(uint32(i1)<<24|uint32(i2)<<16|uint32(addrSuffix)))
+				db.netMasks = append(db.netMasks, simpleMask(d.NetMasks[i1][i2][i]))
+				db.geoIDs = append(db.geoIDs, d.GeoIDs[i1][i2][i])
+			}
+		}
 	}
 
 	return db, nil

@@ -32,7 +32,7 @@ func main() {
 
 	ok := cmd.Next()
 	if !ok {
-		fmt.Printf("Usage: %s [compile|exec|run]\n", executableName)
+		fmt.Printf("Usage: %s [compile|exec]\n", executableName)
 	}
 
 	switch cmd.Command() {
@@ -80,12 +80,12 @@ func exec(dumpPath, ipArg string) error {
 
 	geo, err := ipDB.LookupIP(net.ParseIP(ipArg).To4())
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to lookup IP '%s': %w", ipArg, err)
 	}
 
 	fmt.Printf(
-		"IP=%s found:\n  - City: %s\n  - Region: %s\n  - Country: %s (%s)\n",
-		ipArg, geo.City, geo.Region, geo.Country, string(geo.Country[:]),
+		"City: %s\nRegion: %s\nCountry: %s (%s)\n",
+		geo.City, geo.Region, geo.Country, string(geo.Country[:]),
 	)
 
 	return nil

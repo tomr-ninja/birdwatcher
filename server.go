@@ -50,11 +50,6 @@ type UserResponse struct {
 	} `json:"user_agent"`
 }
 
-//easyjson:json
-type ErrorResponse struct {
-	Error string `json:"error"`
-}
-
 func populateUserResponse(resp *UserResponse, geo *Geo, ua useragent.UserAgent) {
 	resp.Geo.City = geo.City
 	resp.Geo.Region = geo.Region
@@ -113,6 +108,11 @@ func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		respondError(w, err, http.StatusInternalServerError)
 		return
 	}
+}
+
+//easyjson:json
+type ErrorResponse struct {
+	Error string `json:"error"`
 }
 
 func respondError(w http.ResponseWriter, err error, code int) {
