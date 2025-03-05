@@ -1,38 +1,33 @@
 package main
 
 import (
-	"flag"
-	"fmt"
+	"cmp"
 	"log"
-
 	"net/http"
+	"os"
+
+	"github.com/VictoriaMetrics/metrics"
 
 	"github.com/tomr-ninja/birdwatcher"
 )
 
-const (
-	defaultDumpFilePath = "data/geoip.dat"
-	defaultListenPort   = 8080
-)
-
 func main() {
-	var (
-		dumpPath string
-		port     uint64
-	)
+	dbPath := cmp.Or(os.Getenv("GEOIP_DB"), "data/geoip.dat")
 
-	flag.StringVar(&dumpPath, "db", defaultDumpFilePath, "Path to GeoIP database file")
-	flag.Uint64Var(&port, "port", defaultListenPort, "Port to listen on")
-	flag.Parse()
-
-	ipdb, err := birdwatcher.LoadFromDump(dumpPath)
+	ipdb, err := birdwatcher.LoadFromDump(dbPath)
 	if err != nil {
 		log.Fatal("failed to load IP database:", err)
 	}
 
-	http.Handle("/parse", &birdwatcher.UserHandler{IPDB: ipdb})
+	metricsSet := metrics.NewSet()
 
-	if err = http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
+	http.Handle("/parse", &birdwatcher.UserHandler{IPDB: ipdb})
+	http.Handle("/pixel.gif", &birdwatcher.PixelHandler{IPDB: ipdb, Metrics: metricsSet})
+	http.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
+		metricsSet.WritePrometheus(w)
+	})
+
+	if err = http.ListenAndServe(":3000", nil); err != nil {
 		log.Fatal("failed to start server:", err)
 	}
 }

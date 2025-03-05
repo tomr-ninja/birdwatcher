@@ -1,14 +1,28 @@
 package birdwatcher
 
 import (
+	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
+	"image/gif"
 	"net"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"sync"
 
+	"github.com/VictoriaMetrics/metrics"
 	"github.com/mailru/easyjson"
 	"github.com/mileusna/useragent"
+)
+
+const (
+	labelUnknown = "<UNKNOWN>"
+	labelError   = "<ERROR>"
 )
 
 var (
@@ -18,6 +32,16 @@ var (
 	resPool = sync.Pool{
 		New: func() any { return new(UserResponse) },
 	}
+
+	pixelGIF = func() []byte {
+		img := image.NewRGBA(image.Rect(0, 0, 1, 1))
+		img.Set(0, 0, color.RGBA{R: 255, A: 0})
+
+		var buf bytes.Buffer
+		_ = gif.Encode(&buf, img, nil)
+
+		return buf.Bytes()
+	}()
 )
 
 //go:generate easyjson $GOFILE
@@ -50,7 +74,7 @@ type UserResponse struct {
 	} `json:"user_agent"`
 }
 
-func populateUserResponse(resp *UserResponse, geo *Geo, ua useragent.UserAgent) {
+func (resp *UserResponse) populate(geo *Geo, ua useragent.UserAgent) {
 	resp.Geo.City = geo.City
 	resp.Geo.Region = geo.Region
 	resp.Geo.Country = geo.Country.String()
@@ -68,7 +92,7 @@ func populateUserResponse(resp *UserResponse, geo *Geo, ua useragent.UserAgent) 
 }
 
 type UserHandler struct {
-	*IPDB
+	IPDB *IPDB
 }
 
 func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +127,7 @@ func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	res := resPool.Get().(*UserResponse)
 	defer resPool.Put(res)
-	populateUserResponse(res, geo, ua)
+	res.populate(geo, ua)
 	if _, err = easyjson.MarshalToWriter(res, w); err != nil {
 		respondError(w, err, http.StatusInternalServerError)
 		return
@@ -120,4 +144,82 @@ func respondError(w http.ResponseWriter, err error, code int) {
 	w.WriteHeader(code)
 
 	_, _ = easyjson.MarshalToWriter(ErrorResponse{Error: err.Error()}, w)
+}
+
+type PixelHandler struct {
+	IPDB    *IPDB
+	Metrics *metrics.Set
+}
+
+func (h *PixelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	geo, err := h.IPDB.LookupIP(net.ParseIP(r.RemoteAddr))
+	if err != nil {
+		respondError(w, err, http.StatusInternalServerError)
+		return
+	}
+	ua := useragent.Parse(r.UserAgent())
+
+	h.fire(r.Header.Get("Referer"), geo, ua)
+
+	hs := w.Header()
+	hs.Set("Content-Type", "image/gif")
+	hs.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	hs.Set("Pragma", "no-cache")
+	hs.Set("Expires", "0")
+
+	_, _ = w.Write(pixelGIF)
+}
+
+func (h *PixelHandler) fire(referer string, geo *Geo, ua useragent.UserAgent) {
+	var (
+		host = labelError
+		page = labelError
+	)
+	if len(referer) != 0 {
+		if u, err := url.Parse(referer); err == nil {
+			host = u.Path
+			page = u.Path
+		}
+	}
+
+	var (
+		country = cmp.Or(string(geo.Country[:]), labelUnknown)
+		region  = cmp.Or(geo.Region, labelUnknown)
+		city    = cmp.Or(geo.City, labelUnknown)
+		isEU    = strconv.FormatBool(geo.IsEU)
+
+		uaName    = cmp.Or(ua.Name, labelUnknown)
+		uaVersion = cmp.Or(ua.Version, labelUnknown)
+		os        = cmp.Or(ua.OS, labelUnknown)
+		isBot     = strconv.FormatBool(ua.Bot)
+		isMobile  = strconv.FormatBool(ua.Mobile || ua.Tablet)
+	)
+
+	var b strings.Builder
+	b.Grow(128)
+	b.WriteString(`page_visits{host="`)
+	b.WriteString(host)
+	b.WriteString(`",page="`)
+	b.WriteString(page)
+	b.WriteString(`",country="`)
+	b.WriteString(country)
+	b.WriteString(`",region="`)
+	b.WriteString(region)
+	b.WriteString(`",city="`)
+	b.WriteString(city)
+	b.WriteString(`",is_eu="`)
+	b.WriteString(isEU)
+	b.WriteString(`",ua_name="`)
+	b.WriteString(uaName)
+	b.WriteString(`",ua_version="`)
+	b.WriteString(uaVersion)
+	b.WriteString(`",os="`)
+	b.WriteString(os)
+	b.WriteString(`",is_bot="`)
+	b.WriteString(isBot)
+	b.WriteString(`",is_mobile="`)
+	b.WriteString(isMobile)
+	b.WriteString(`"}`)
+
+	h.Metrics.GetOrCreateCounter(b.String()).Inc()
 }
