@@ -209,11 +209,15 @@ func (h *PixelHandler) fire(referer string, geo *Geo, ua useragent.UserAgent) {
 		isEU    = strconv.FormatBool(geo.IsEU)
 
 		uaName    = cmp.Or(ua.Name, labelUnknown)
-		uaVersion = cmp.Or(ua.Version, labelUnknown)
+		uaVersion = labelUnknown
 		os        = cmp.Or(ua.OS, labelUnknown)
 		isBot     = strconv.FormatBool(ua.Bot)
 		isMobile  = strconv.FormatBool(ua.Mobile || ua.Tablet)
 	)
+
+	if ua.VersionNo.Major != 0 {
+		uaVersion = strconv.FormatInt(int64(ua.VersionNo.Major), 10)
+	}
 
 	var b strings.Builder
 	b.Grow(128)

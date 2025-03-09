@@ -34,7 +34,7 @@ func TestPixelHandler_ServeHTTP(t *testing.T) {
 	}
 
 	actual := metricsResp.Body.String()
-	expected := `page_visits{host="example.org",page="/some/page",country="DE",region="Land Berlin",city="Berlin",is_eu="true",ua_name="Chrome",ua_version="93.0.0.0",os="Android",is_bot="false",is_mobile="true"} 1` + "\n"
+	expected := `page_visits{host="example.org",page="/some/page",country="DE",region="Land Berlin",city="Berlin",is_eu="true",ua_name="Chrome",ua_version="93",os="Android",is_bot="false",is_mobile="true"} 1` + "\n"
 	if actual != expected {
 		t.Errorf("metrics: expected %q, got %q", expected, actual)
 	}
