@@ -191,10 +191,7 @@ func (h *PixelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PixelHandler) fire(referer string, geo *Geo, ua useragent.UserAgent) {
-	var (
-		host = labelError
-		page = labelError
-	)
+	host, page := labelError, labelError
 	if len(referer) != 0 {
 		if u, err := url.Parse(referer); err == nil {
 			host = u.Host
@@ -202,48 +199,49 @@ func (h *PixelHandler) fire(referer string, geo *Geo, ua useragent.UserAgent) {
 		}
 	}
 
-	var (
-		country = cmp.Or(string(geo.Country[:]), labelUnknown)
-		region  = cmp.Or(geo.Region, labelUnknown)
-		city    = cmp.Or(geo.City, labelUnknown)
-		isEU    = strconv.FormatBool(geo.IsEU)
-
-		uaName    = cmp.Or(ua.Name, labelUnknown)
-		uaVersion = labelUnknown
-		os        = cmp.Or(ua.OS, labelUnknown)
-		isBot     = strconv.FormatBool(ua.Bot)
-		isMobile  = strconv.FormatBool(ua.Mobile || ua.Tablet)
-	)
-
+	uaVersion := labelUnknown
 	if ua.VersionNo.Major != 0 {
 		uaVersion = strconv.FormatInt(int64(ua.VersionNo.Major), 10)
 	}
 
-	var b strings.Builder
-	b.Grow(128)
-	b.WriteString(`page_visits{host="`)
-	b.WriteString(host)
-	b.WriteString(`",page="`)
-	b.WriteString(page)
-	b.WriteString(`",country="`)
-	b.WriteString(country)
-	b.WriteString(`",region="`)
-	b.WriteString(region)
-	b.WriteString(`",city="`)
-	b.WriteString(city)
-	b.WriteString(`",is_eu="`)
-	b.WriteString(isEU)
-	b.WriteString(`",ua_name="`)
-	b.WriteString(uaName)
-	b.WriteString(`",ua_version="`)
-	b.WriteString(uaVersion)
-	b.WriteString(`",os="`)
-	b.WriteString(os)
-	b.WriteString(`",is_bot="`)
-	b.WriteString(isBot)
-	b.WriteString(`",is_mobile="`)
-	b.WriteString(isMobile)
-	b.WriteString(`"}`)
+	m := formatMetric(
+		"page_visits",
+		"host", host,
+		"page", page,
+		"country", cmp.Or(string(geo.Country[:]), labelUnknown),
+		"region", cmp.Or(geo.Region, labelUnknown),
+		"city", cmp.Or(geo.City, labelUnknown),
+		"is_eu", strconv.FormatBool(geo.IsEU),
+		"ua_name", cmp.Or(ua.Name, labelUnknown),
+		"ua_version", uaVersion,
+		"os", cmp.Or(ua.OS, labelUnknown),
+		"is_bot", strconv.FormatBool(ua.Bot),
+		"is_mobile", strconv.FormatBool(ua.Mobile || ua.Tablet),
+	)
 
-	h.Metrics.GetOrCreateCounter(b.String()).Inc()
+	h.Metrics.GetOrCreateCounter(m).Inc()
+}
+
+func formatMetric(name string, tags ...string) string {
+	if len(tags)%2 != 0 {
+		panic("invalid tags")
+	}
+
+	var b strings.Builder
+	b.Grow(len(name) + len(tags)*32) // imperfect heuristic
+
+	b.WriteString(name)
+	b.WriteByte('{')
+	for i := 0; i < len(tags); i += 2 {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(tags[i])
+		b.WriteString(`="`)
+		b.WriteString(tags[i+1])
+		b.WriteByte('"')
+	}
+	b.WriteByte('}')
+
+	return b.String()
 }
