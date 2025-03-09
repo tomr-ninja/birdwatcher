@@ -44,6 +44,10 @@ var (
 	}()
 )
 
+type ipdb interface {
+	LookupIP(net.IP) (*Geo, error)
+}
+
 //go:generate easyjson $GOFILE
 
 //easyjson:json
@@ -92,7 +96,7 @@ func (resp *UserResponse) populate(geo *Geo, ua useragent.UserAgent) {
 }
 
 type UserHandler struct {
-	IPDB *IPDB
+	IPDB ipdb
 }
 
 func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +151,7 @@ func respondError(w http.ResponseWriter, err error, code int) {
 }
 
 type PixelHandler struct {
-	IPDB    *IPDB
+	IPDB    ipdb
 	Metrics *metrics.Set
 }
 
@@ -157,9 +161,25 @@ func (h *PixelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		respondError(w, err, http.StatusInternalServerError)
 		return
 	}
+
+	// https://www.chromium.org/updates/ua-reduction/
+	//
+	// Because of UA reduction (in Chrome), only very basic information is available in the User-Agent header:
+	// platform (Windows, Android, etc.), architecture (x86, ARM, etc.), and the browser's major version.
+	//
+	// TODO: Use the `Sec-CH-UA-*` headers to get more information about the user agent, if available.
 	ua := useragent.Parse(r.UserAgent())
 
-	h.fire(r.Header.Get("Referer"), geo, ua)
+	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referer
+	referer := r.Header.Get("Referer")
+	if len(referer) == 0 {
+		referer = r.URL.Query().Get("bw-referrer")
+		if len(referer) == 0 {
+			referer = r.URL.Query().Get("bw-referer") // a common (and standardized) typo
+		}
+	}
+
+	h.fire(referer, geo, ua)
 
 	hs := w.Header()
 	hs.Set("Content-Type", "image/gif")
@@ -177,7 +197,7 @@ func (h *PixelHandler) fire(referer string, geo *Geo, ua useragent.UserAgent) {
 	)
 	if len(referer) != 0 {
 		if u, err := url.Parse(referer); err == nil {
-			host = u.Path
+			host = u.Host
 			page = u.Path
 		}
 	}

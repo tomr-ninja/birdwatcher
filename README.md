@@ -5,7 +5,8 @@
 ## Birdwatcher: because you already have Grafana
 
 Birdwatcher is a microservice that exposes a simple pixel tracking endpoint and relies on your
-existing metrics stack (Prometheus, Grafana, etc.) to collect, store and visualize the data.
+existing metrics stack (Prometheus, Grafana, etc.) to collect, store and visualize your website
+analytics data.
 
 If you have a Grafana instance, you can use the provided dashboard to visualize the data. Or
 you can use something else. Almost everything supports Prometheus these days.
