@@ -17,7 +17,8 @@ import (
 
 	"github.com/VictoriaMetrics/metrics"
 	"github.com/mailru/easyjson"
-	"github.com/mileusna/useragent"
+
+	"github.com/tomr-ninja/birdwatcher/ua"
 )
 
 const (
@@ -66,33 +67,25 @@ type UserResponse struct {
 		IsEU       bool   `json:"is_eu"`
 	} `json:"geo"`
 	UserAgent struct {
-		Name      string `json:"name"`
-		Version   string `json:"version"`
-		OS        string `json:"os"`
-		OSVersion string `json:"os_version"`
-		Device    string `json:"device"`
-		Mobile    bool   `json:"mobile"`
-		Tablet    bool   `json:"tablet"`
-		Desktop   bool   `json:"desktop"`
-		Bot       bool   `json:"bot"`
+		Name     string `json:"name"`
+		Version  string `json:"version"`
+		OS       string `json:"os"`
+		IsMobile bool   `json:"is_mobile"`
+		IsBot    bool   `json:"is_bot"`
 	} `json:"user_agent"`
 }
 
-func (resp *UserResponse) populate(geo *Geo, ua useragent.UserAgent) {
+func (resp *UserResponse) populate(geo *Geo, ua ua.Data) {
 	resp.Geo.City = geo.City
 	resp.Geo.Region = geo.Region
 	resp.Geo.Country = geo.Country.String()
 	resp.Geo.CountryISO = string(geo.Country[:])
 	resp.Geo.IsEU = geo.IsEU
-	resp.UserAgent.Name = ua.Name
-	resp.UserAgent.Version = ua.Version
+	resp.UserAgent.Name = ua.UAName
+	resp.UserAgent.Version = strconv.FormatInt(int64(ua.UAVersion), 10)
 	resp.UserAgent.OS = ua.OS
-	resp.UserAgent.OSVersion = ua.OSVersion
-	resp.UserAgent.Device = ua.Device
-	resp.UserAgent.Mobile = ua.Mobile
-	resp.UserAgent.Tablet = ua.Tablet
-	resp.UserAgent.Desktop = ua.Desktop
-	resp.UserAgent.Bot = ua.Bot
+	resp.UserAgent.IsMobile = ua.IsMobile
+	resp.UserAgent.IsBot = ua.IsBot
 }
 
 type UserHandler struct {
@@ -124,14 +117,11 @@ func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse the user agent
-	ua := useragent.Parse(req.UA)
-
 	// Send the response
 	w.Header().Set("Content-Type", "application/json")
 	res := resPool.Get().(*UserResponse)
 	defer resPool.Put(res)
-	res.populate(geo, ua)
+	res.populate(geo, ua.Parse(req.UA))
 	if _, err = easyjson.MarshalToWriter(res, w); err != nil {
 		respondError(w, err, http.StatusInternalServerError)
 		return
@@ -162,13 +152,7 @@ func (h *PixelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// https://www.chromium.org/updates/ua-reduction/
-	//
-	// Because of UA reduction (in Chrome), only very basic information is available in the User-Agent header:
-	// platform (Windows, Android, etc.), architecture (x86, ARM, etc.), and the browser's major version.
-	//
-	// TODO: Use the `Sec-CH-UA-*` headers to get more information about the user agent, if available.
-	ua := useragent.Parse(r.UserAgent())
+	uaData := ua.Parse(r.UserAgent())
 
 	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referer
 	referer := r.Header.Get("Referer")
@@ -179,7 +163,7 @@ func (h *PixelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.fire(referer, geo, ua)
+	h.fire(referer, geo, uaData)
 
 	hs := w.Header()
 	hs.Set("Content-Type", "image/gif")
@@ -190,7 +174,7 @@ func (h *PixelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(pixelGIF)
 }
 
-func (h *PixelHandler) fire(referer string, geo *Geo, ua useragent.UserAgent) {
+func (h *PixelHandler) fire(referer string, geo *Geo, ua ua.Data) {
 	host, page := labelError, labelError
 	if len(referer) != 0 {
 		if u, err := url.Parse(referer); err == nil {
@@ -200,8 +184,8 @@ func (h *PixelHandler) fire(referer string, geo *Geo, ua useragent.UserAgent) {
 	}
 
 	uaVersion := labelUnknown
-	if ua.VersionNo.Major != 0 {
-		uaVersion = strconv.FormatInt(int64(ua.VersionNo.Major), 10)
+	if ua.UAVersion != 0 {
+		uaVersion = strconv.FormatInt(int64(ua.UAVersion), 10)
 	}
 
 	m := formatMetric(
@@ -212,11 +196,11 @@ func (h *PixelHandler) fire(referer string, geo *Geo, ua useragent.UserAgent) {
 		"region", cmp.Or(geo.Region, labelUnknown),
 		"city", cmp.Or(geo.City, labelUnknown),
 		"is_eu", strconv.FormatBool(geo.IsEU),
-		"ua_name", cmp.Or(ua.Name, labelUnknown),
+		"ua_name", cmp.Or(ua.UAName, labelUnknown),
 		"ua_version", uaVersion,
 		"os", cmp.Or(ua.OS, labelUnknown),
-		"is_bot", strconv.FormatBool(ua.Bot),
-		"is_mobile", strconv.FormatBool(ua.Mobile || ua.Tablet),
+		"is_bot", strconv.FormatBool(ua.IsBot),
+		"is_mobile", strconv.FormatBool(ua.IsMobile),
 	)
 
 	h.Metrics.GetOrCreateCounter(m).Inc()

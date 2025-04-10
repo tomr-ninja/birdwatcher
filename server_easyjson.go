@@ -91,15 +91,11 @@ func (v *UserResponse) UnmarshalEasyJSON(l *jlexer.Lexer) {
 	easyjson22b57fa5DecodeGithubComTomrNinjaBirdwatcher(l, v)
 }
 func easyjson22b57fa5Decode1(in *jlexer.Lexer, out *struct {
-	Name      string `json:"name"`
-	Version   string `json:"version"`
-	OS        string `json:"os"`
-	OSVersion string `json:"os_version"`
-	Device    string `json:"device"`
-	Mobile    bool   `json:"mobile"`
-	Tablet    bool   `json:"tablet"`
-	Desktop   bool   `json:"desktop"`
-	Bot       bool   `json:"bot"`
+	Name     string `json:"name"`
+	Version  string `json:"version"`
+	OS       string `json:"os"`
+	IsMobile bool   `json:"is_mobile"`
+	IsBot    bool   `json:"is_bot"`
 }) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
@@ -125,18 +121,10 @@ func easyjson22b57fa5Decode1(in *jlexer.Lexer, out *struct {
 			out.Version = string(in.String())
 		case "os":
 			out.OS = string(in.String())
-		case "os_version":
-			out.OSVersion = string(in.String())
-		case "device":
-			out.Device = string(in.String())
-		case "mobile":
-			out.Mobile = bool(in.Bool())
-		case "tablet":
-			out.Tablet = bool(in.Bool())
-		case "desktop":
-			out.Desktop = bool(in.Bool())
-		case "bot":
-			out.Bot = bool(in.Bool())
+		case "is_mobile":
+			out.IsMobile = bool(in.Bool())
+		case "is_bot":
+			out.IsBot = bool(in.Bool())
 		default:
 			in.SkipRecursive()
 		}
@@ -148,15 +136,11 @@ func easyjson22b57fa5Decode1(in *jlexer.Lexer, out *struct {
 	}
 }
 func easyjson22b57fa5Encode1(out *jwriter.Writer, in struct {
-	Name      string `json:"name"`
-	Version   string `json:"version"`
-	OS        string `json:"os"`
-	OSVersion string `json:"os_version"`
-	Device    string `json:"device"`
-	Mobile    bool   `json:"mobile"`
-	Tablet    bool   `json:"tablet"`
-	Desktop   bool   `json:"desktop"`
-	Bot       bool   `json:"bot"`
+	Name     string `json:"name"`
+	Version  string `json:"version"`
+	OS       string `json:"os"`
+	IsMobile bool   `json:"is_mobile"`
+	IsBot    bool   `json:"is_bot"`
 }) {
 	out.RawByte('{')
 	first := true
@@ -177,34 +161,14 @@ func easyjson22b57fa5Encode1(out *jwriter.Writer, in struct {
 		out.String(string(in.OS))
 	}
 	{
-		const prefix string = ",\"os_version\":"
+		const prefix string = ",\"is_mobile\":"
 		out.RawString(prefix)
-		out.String(string(in.OSVersion))
+		out.Bool(bool(in.IsMobile))
 	}
 	{
-		const prefix string = ",\"device\":"
+		const prefix string = ",\"is_bot\":"
 		out.RawString(prefix)
-		out.String(string(in.Device))
-	}
-	{
-		const prefix string = ",\"mobile\":"
-		out.RawString(prefix)
-		out.Bool(bool(in.Mobile))
-	}
-	{
-		const prefix string = ",\"tablet\":"
-		out.RawString(prefix)
-		out.Bool(bool(in.Tablet))
-	}
-	{
-		const prefix string = ",\"desktop\":"
-		out.RawString(prefix)
-		out.Bool(bool(in.Desktop))
-	}
-	{
-		const prefix string = ",\"bot\":"
-		out.RawString(prefix)
-		out.Bool(bool(in.Bot))
+		out.Bool(bool(in.IsBot))
 	}
 	out.RawByte('}')
 }
