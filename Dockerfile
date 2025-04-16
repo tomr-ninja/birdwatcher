@@ -11,6 +11,6 @@ RUN CGO_ENABLED=0 go build -o /go/bin/app ./cmd/birdwatcher
 FROM gcr.io/distroless/static-debian12
 
 COPY --from=build /go/bin/app /
-COPY data/geoip.dat /data/
+COPY geoip.dat /
 EXPOSE 3000
 CMD ["/app"]

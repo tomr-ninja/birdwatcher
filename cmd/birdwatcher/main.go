@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	dbPath := cmp.Or(os.Getenv("GEOIP_DB"), "data/geoip.dat")
+	dbPath := cmp.Or(os.Getenv("GEOIP_DB"), "geoip.dat")
 
 	ipdb, err := birdwatcher.LoadFromDump(dbPath)
 	if err != nil {
